@@ -16,8 +16,6 @@ import com.vividsolutions.jts.geom.Polygon;
  */
 public class AlphaShape extends TriangulationBasedAlgorithm {	
 	
-	private Geometry _triangles = null;
-	
 	/**
 	 * @param geom The Geometry object to operate on
 	 */
@@ -31,19 +29,15 @@ public class AlphaShape extends TriangulationBasedAlgorithm {
 	 */
 	public Geometry getAlphaShape(double alpha) {
 		
-		// compute triangles, if not computed before
+		Geometry triangles = getTriangles();
 
-		if(_triangles == null) {
-			this._triangles = triangulator.getTriangles(new GeometryFactory());
-		}
-
-		Geometry[] partition = new Geometry[_triangles.getNumGeometries()];
+		Geometry[] partition = new Geometry[triangles.getNumGeometries()];
 		int head = 0;
 		int tail = partition.length-1;
 
 		// compute circumcircle radius for each triangle, and place in divided
-		for(int i=0; i<_triangles.getNumGeometries(); i++) {
-			Polygon t = (Polygon) _triangles.getGeometryN(i);
+		for(int i=0; i<triangles.getNumGeometries(); i++) {
+			Polygon t = (Polygon) triangles.getGeometryN(i);
 			// set radius as user data
 			double r = triangleCircumcirleRadius(t);
 			if(r > alpha) {
@@ -57,6 +51,7 @@ public class AlphaShape extends TriangulationBasedAlgorithm {
 		}
 		Geometry[] keep = new Geometry[head];
 		System.arraycopy(partition, 0, keep, 0, head);
+		// Note: perhaps union can be optimized, if not done by JTS already (Cascaded union)
 		Geometry result = new GeometryFactory().createGeometryCollection(keep).union();
 		
 		return result;
