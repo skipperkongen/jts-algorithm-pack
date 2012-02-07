@@ -3,7 +3,6 @@ package org.geodelivery.jap.charact;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.operation.linemerge.LineMergeGraph;
 import com.vividsolutions.jts.planargraph.DirectedEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Edge;
@@ -12,13 +11,9 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
 
 /**
  * Concave hull algorithm by Pimin Konstantin Kefaloukos and 
- * Elias Lšfgren
+ * Elias Lšfgren.
+ * Future optimizations: store successor edge instead of successor node in exposed nodes setData()
  * @author Pimin Konstantin Kefaloukos
- *
- */
-/**
- * @author kostas
- *
  */
 public class ConcaveHull extends Characterizer {
 	
@@ -41,8 +36,7 @@ public class ConcaveHull extends Characterizer {
 		// marked node means "exposed"
 		// marked edge means "deleted"
 
-
-		LineMergeGraph graph = getGraph();
+		PlanarGraph graph = getGraph();
 
 		long t0 = System.currentTimeMillis();
 		// Variables
@@ -61,10 +55,8 @@ public class ConcaveHull extends Characterizer {
 		Node fakeNode = new Node(new Coordinate(start.getCoordinate().x - 10, start.getCoordinate().y));
 		DirectedEdge fakeEdge = new DirectedEdge(start, fakeNode, fakeNode.getCoordinate(), true);
 		start.addOutEdge(fakeEdge); // edge pointing "west", used to trick the nextEdgeCW function
-
 		inversePredecessorEdge = fakeEdge;
-		successorEdge = nextEdgeCW(from, inversePredecessorEdge); // find next edge and perimeter node
-
+		successorEdge = nextEdgeCW(inversePredecessorEdge); // find next edge and perimeter node
 		// no longer need fakeEdge, delete it again, phew, the hoops you have to jump through sometimes..
 		start.remove(fakeEdge);
 
@@ -83,12 +75,12 @@ public class ConcaveHull extends Characterizer {
 			}
 			to.setMarked(true);
 			_numExposed++; // update number of exposed nodes
-			from.setData(to); // set successor
+			from.setData(successorEdge); // set successor
 
 			// move "from" to new position
 			inversePredecessorEdge = successorEdge.getEdge().getDirEdge(to);
 			from = to;
-			successorEdge = nextEdgeCW(from, inversePredecessorEdge); // find next edge and perimeter node
+			successorEdge = nextEdgeCW(inversePredecessorEdge); // find next edge and perimeter node
 		} 
 		while(from != start);
 		
@@ -96,12 +88,51 @@ public class ConcaveHull extends Characterizer {
 		// begin deletion
 		// jump to longest perimeter edge
 		successorEdge = longestEdge;
-		from = longestEdge.getFromNode();
-		to = (Node) from.getData();
-		inversePredecessorEdge = successorEdge.getEdge().getDirEdge(to);
+		start = successorEdge.getFromNode();
+		from = start;
 
-		start = from;
-		to = (Node) from.getData();
+		while(compression > 0) {
+
+			boolean hasDeleted = false;
+
+			// do a lap around the perimeter
+			// delete edges that are already exposed, but not edges that become exposed
+			do {
+				from = successorEdge.getFromNode();
+				to = successorEdge.getToNode();
+				
+				// can successor edge be deleted?
+				// rule 1: from and to have degree > 2
+				// rule 2: opposite node in CW triangle is not exposed
+				DirectedEdge triangleEdge1 = nextEdgeCW(successorEdge);
+				Node triangleNode = triangleEdge1.getToNode();
+				DirectedEdge inv = triangleEdge1.getEdge().getDirEdge(triangleNode);
+				DirectedEdge triangleEdge2 = nextEdgeCW(inv);
+	
+				boolean rule1 = getDegree(successorEdge.getFromNode()) > 2 
+				&& getDegree(successorEdge.getToNode()) > 2;
+				boolean rule2 = !triangleNode.isMarked();
+				if(rule1 && rule2) {
+					// delete edge and replace with two triangle edges
+					Node oldFrom = successorEdge.getFromNode();
+					oldFrom.setData(triangleEdge1);
+					triangleNode.setData(triangleEdge2);
+					markDeleted(successorEdge);
+					triangleNode.setMarked(true);
+					
+					hasDeleted = true;
+				}
+				successorEdge = (DirectedEdge) to.getData();
+				from = to;
+				
+			} while (from != start);
+			
+			if(!hasDeleted) {
+				break;
+			}
+			
+			compression--;
+		}
 		
 		// TODO: the deletion process
 		Geometry result = toPolygon(start);
@@ -109,6 +140,20 @@ public class ConcaveHull extends Characterizer {
 		return result;
 	}
 	
+	/**
+	 * Ignore edges marked as deleted when measuring degree of node
+	 * @param node
+	 * @return
+	 */
+	private int getDegree(Node node) {
+		int degree = 0;
+		for(Object obj : node.getOutEdges().getEdges()) {
+			DirectedEdge e = (DirectedEdge) obj;
+			degree += e.isMarked() ? 0 : 1;
+		}
+		return degree;
+	}
+		
 	private void markDeleted(DirectedEdge edge) {
 		edge.setMarked(true);
 		Edge parent = edge.getEdge();
@@ -120,54 +165,24 @@ public class ConcaveHull extends Characterizer {
 			}
 		}
 	}
-
-	/**
-	 * For angle in radians, return inverse angle (+/- Math.PI)
-	 * @param angle
-	 * @return
-	 */
-	private double inverse(double angle) {
-		if(angle > 0) {
-			return angle - Math.PI;
-		}
-		else {
-			return angle + Math.PI;
-		}
-	}
-
 	
 	/**
-	 * Distance in radians in clockwise direction
-	 * @param radA
-	 * @param radB
-	 * @return
-	 */
-	private double distCW(double radA, double radB) {
-		if(radA < radB) {
-			return Math.PI * 2 - (radB - radA);
-		}
-		else {
-			return radA - radB;
-		}
-	}
-	
-	/**
-	 * "Robot-arm" perimeter crawling step. Btw, there is a next cw edge in DirectedEdgeStar, but doesn't fit with what we have
+	 * "Robot-arm" perimeter crawling step.
+	 * Ignores edges in edge star marked as deleted
 	 * @param node
 	 * @param inverseAngle
 	 * @return
 	 */
-	private DirectedEdge nextEdgeCW(Node node, DirectedEdge predecessor) {
+	private DirectedEdge nextEdgeCW(DirectedEdge outEdge) {
 		// pick the out-edge of node, that is closest in clock-wise direction from inverseAngle
+		Node node = outEdge.getFromNode();
 		DirectedEdgeStar star = node.getOutEdges();
-		while(true) {
-			DirectedEdge successor = star.getNextCWEdge(predecessor);
-			// skip edges marked as deleted
-			if(!successor.isMarked()) {
-				return successor;
-			}
-			predecessor = successor;
+		DirectedEdge successor = star.getNextCWEdge(outEdge);
+		while(successor.isMarked()) {
+			outEdge = successor;
+			successor = star.getNextCWEdge(outEdge);
 		}
+		return successor;
 	}
 	
 	/**
@@ -202,68 +217,19 @@ public class ConcaveHull extends Characterizer {
 	}
 	
 	private Geometry toPolygon(Node node) {
-		// the "data" of each perimeter node points to successor node
+		// the "data" of each perimeter node is a successor edge
 		// number of exposed nodes recorded in _numExposed
 		Coordinate[] shell = new Coordinate[_numExposed+1];
 		// crawl perimeter
 		for(int i=0; i<_numExposed; i++) {
 			shell[i] = node.getCoordinate();
-			node = (Node) node.getData();
+			DirectedEdge successorEdge = (DirectedEdge) node.getData();
+			node = successorEdge.getToNode();
 		}
 		shell[_numExposed] = shell[0];
 		GeometryFactory fact = new GeometryFactory();
 		// return just the concave hull
 		return fact.createPolygon(fact.createLinearRing(shell), null);
-	}
-	
-	// TODO: Below
-	
-	private boolean canDelete(DirectedEdge e) {
-		// rule 1: nodes must have 3+ degree
-		// rule 2: opposing node must be un-exposed
-		return rule1(e.getFromNode()) 
-		&& rule1(e.getToNode()) 
-		&& rule2(!isExposed(getOpp(e))); 
-
-	}
-
-	// cannot delete edge, if either node has degree 2
-	private boolean rule1(Node fromNode) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-	
-	// cannot delete edge, if opposed node
-	private boolean rule2(boolean b) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	private Node getOpp(DirectedEdge e) {
-		return null;
-	}
-
-	private boolean isExposed(Node n) {
-		// if node has data, it is exposed
-		if(n.isMarked()) {
-			return true;
-		}
-		// else if it has two exposed out edges 
-		int exposedOutEdges = 0;
-
-		DirectedEdgeStar star = n.getOutEdges();
-		// count exposed out edges
-		for(Object o : star.getEdges()) {
-			DirectedEdge dirEdge = (DirectedEdge) o;
-			if(isExposed(dirEdge)) {
-				exposedOutEdges++;
-			}
-		}
-		return exposedOutEdges == 2;
-	}
-	
-	private boolean isExposed(DirectedEdge e) {
-		return false;
 	}
 
 }

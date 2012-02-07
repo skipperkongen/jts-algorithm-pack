@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 
-import org.geodelivery.jap.charact.AlphaShape;
 import org.geodelivery.jap.charact.ConcaveHull;
 
 import com.vividsolutions.jts.geom.Geometry;
@@ -34,11 +33,11 @@ public class Test2 {
 			ConcaveHull ch = new ConcaveHull(g);
 			Geometry result = ch.getConcaveHull(1);
 			System.out.println(System.currentTimeMillis() - t0);
-//			System.out.println(result.toText());
-//			WKTWriter writer = new WKTWriter();
-//			FileWriter outstream = new FileWriter("data/result.wkt");
-//			BufferedWriter out = new BufferedWriter(outstream);
-//			writer.write(result, out);
+			System.out.println(result.toText());
+			WKTWriter writer = new WKTWriter();
+			FileWriter outstream = new FileWriter("data/result.wkt");
+			BufferedWriter out = new BufferedWriter(outstream);
+			writer.write(result, out);
 
 		} catch (Exception e) {// Catch exception if any
 			System.err.println("Error: " + e.getMessage());
