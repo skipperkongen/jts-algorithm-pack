@@ -100,26 +100,27 @@ public class ConcaveHull extends Characterizer {
 			do {
 				from = successorEdge.getFromNode();
 				to = successorEdge.getToNode();
-				
-				// can successor edge be deleted?
-				// rule 1: from and to have degree > 2
-				// rule 2: opposite node in CW triangle is not exposed
+
+				// compute triangle edges
 				DirectedEdge triangleEdge1 = nextEdgeCW(successorEdge);
 				Node triangleNode = triangleEdge1.getToNode();
 				DirectedEdge inv = triangleEdge1.getEdge().getDirEdge(triangleNode);
 				DirectedEdge triangleEdge2 = nextEdgeCW(inv);
-	
+
+				// can successor edge be deleted?
+				// rule 1: from and to have degree > 2
+				// rule 2: opposite node in CW triangle is not exposed
 				boolean rule1 = getDegree(successorEdge.getFromNode()) > 2 
 				&& getDegree(successorEdge.getToNode()) > 2;
 				boolean rule2 = !triangleNode.isMarked();
+				
 				if(rule1 && rule2) {
 					// delete edge and replace with two triangle edges
-					Node oldFrom = successorEdge.getFromNode();
-					oldFrom.setData(triangleEdge1);
+					from.setData(triangleEdge1);
 					triangleNode.setData(triangleEdge2);
 					markDeleted(successorEdge);
 					triangleNode.setMarked(true);
-					
+					_numExposed++;
 					hasDeleted = true;
 				}
 				successorEdge = (DirectedEdge) to.getData();
@@ -134,7 +135,6 @@ public class ConcaveHull extends Characterizer {
 			compression--;
 		}
 		
-		// TODO: the deletion process
 		Geometry result = toPolygon(start);
 		System.out.println("getConcaveHull():" + (System.currentTimeMillis() - t0));
 		return result;

@@ -12,6 +12,8 @@ import org.geodelivery.jap.charact.ConcaveHull;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTWriter;
+import com.vividsolutions.jts.simplify.DouglasPeuckerSimplifier;
+import com.vividsolutions.jts.simplify.TopologyPreservingSimplifier;
 
 public class Test2 {
 
@@ -31,7 +33,11 @@ public class Test2 {
 			Geometry g = wktReader.read(br);
 			long t0 = System.currentTimeMillis();
 			ConcaveHull ch = new ConcaveHull(g);
-			Geometry result = ch.getConcaveHull(1);
+			Geometry result = ch.getConcaveHull(20);
+			result = DouglasPeuckerSimplifier.simplify(result, 1000);
+			result = result.buffer(250);
+			result = result.buffer(-250);
+
 			System.out.println(System.currentTimeMillis() - t0);
 			System.out.println(result.toText());
 			WKTWriter writer = new WKTWriter();
