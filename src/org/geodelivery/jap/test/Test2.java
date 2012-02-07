@@ -8,12 +8,13 @@ import java.io.FileWriter;
 import java.io.InputStreamReader;
 
 import org.geodelivery.jap.charact.AlphaShape;
+import org.geodelivery.jap.charact.ConcaveHull;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTWriter;
 
-public class Test {
+public class Test2 {
 
 	/**
 	 * @param args
@@ -29,13 +30,15 @@ public class Test {
 			
 			WKTReader wktReader = new WKTReader();
 			Geometry g = wktReader.read(br);
-			AlphaShape alpha = new AlphaShape(g);
-			Geometry result = alpha.getAlphaShape(0.12);
+			long t0 = System.currentTimeMillis();
+			ConcaveHull ch = new ConcaveHull(g);
+			Geometry result = ch.getConcaveHull(1);
+			System.out.println(System.currentTimeMillis() - t0);
 //			System.out.println(result.toText());
-			WKTWriter writer = new WKTWriter();
-			FileWriter outstream = new FileWriter("data/result.wkt");
-			BufferedWriter out = new BufferedWriter(outstream);
-			writer.write(result, out);
+//			WKTWriter writer = new WKTWriter();
+//			FileWriter outstream = new FileWriter("data/result.wkt");
+//			BufferedWriter out = new BufferedWriter(outstream);
+//			writer.write(result, out);
 
 		} catch (Exception e) {// Catch exception if any
 			System.err.println("Error: " + e.getMessage());
