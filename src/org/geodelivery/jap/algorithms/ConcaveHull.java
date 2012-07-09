@@ -20,16 +20,10 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
 public class ConcaveHull implements GeometryToGeometry {
 	
 	// useful links:
-	// http://en.wikipedia.org/wiki/File:Degree-Radian_Conversion.svg
-	
-	private int _compression;	
-	private int _numExposed;
-	
-	public ConcaveHull(int compression) {
+	// http://en.wikipedia.org/wiki/File:Degree-Radian_Conversion.svg	
+	public ConcaveHull() {
 		super();
-		this._compression = compression;
 	}
-	
 	
 	/**
 	 * @param compression
@@ -38,7 +32,8 @@ public class ConcaveHull implements GeometryToGeometry {
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
 		
-		int compression = this._compression;
+		int compression = 42; // decide a good value for this one
+		int numExposed = 0;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
@@ -80,7 +75,7 @@ public class ConcaveHull implements GeometryToGeometry {
 				longestEdge = successorEdge;
 			}
 			to.setMarked(true);
-			_numExposed++; // update number of exposed nodes
+			numExposed++; // update number of exposed nodes
 			from.setData(successorEdge); // set successor
 
 			// move "from" to new position
@@ -126,7 +121,7 @@ public class ConcaveHull implements GeometryToGeometry {
 					triangleNode.setData(triangleEdge2);
 					markDeleted(successorEdge);
 					triangleNode.setMarked(true);
-					_numExposed++;
+					numExposed++;
 					hasDeleted = true;
 				}
 				successorEdge = (DirectedEdge) to.getData();
@@ -141,7 +136,7 @@ public class ConcaveHull implements GeometryToGeometry {
 			compression--;
 		}
 		
-		Geometry result = toPolygon(start);
+		Geometry result = toPolygon(start, numExposed);
 		return result;
 	}
 	
@@ -221,17 +216,17 @@ public class ConcaveHull implements GeometryToGeometry {
 		return best;
 	}
 	
-	private Geometry toPolygon(Node node) {
+	private Geometry toPolygon(Node node, int numExposed) {
 		// the "data" of each perimeter node is a successor edge
 		// number of exposed nodes recorded in _numExposed
-		Coordinate[] shell = new Coordinate[_numExposed+1];
+		Coordinate[] shell = new Coordinate[numExposed+1];
 		// crawl perimeter
-		for(int i=0; i<_numExposed; i++) {
+		for(int i=0; i<numExposed; i++) {
 			shell[i] = node.getCoordinate();
 			DirectedEdge successorEdge = (DirectedEdge) node.getData();
 			node = successorEdge.getToNode();
 		}
-		shell[_numExposed] = shell[0];
+		shell[numExposed] = shell[0];
 		GeometryFactory fact = new GeometryFactory();
 		// return just the concave hull
 		return fact.createPolygon(fact.createLinearRing(shell), null);
