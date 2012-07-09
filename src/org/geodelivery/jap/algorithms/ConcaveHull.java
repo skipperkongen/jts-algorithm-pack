@@ -25,13 +25,11 @@ public class ConcaveHull implements GeometryToGeometry {
 	class Perimeter {
 		int _numExposed;
 		DirectedEdge _startEdge;
-		ArrayList<Double> _edgeLengths;
 		
-		public Perimeter(int numExposed, DirectedEdge startEdge, ArrayList<Double> edgeLengths) {
+		public Perimeter(int numExposed, DirectedEdge startEdge) {
 			super();
 			this._numExposed = numExposed;
 			this._startEdge = startEdge;
-			this._edgeLengths = edgeLengths;
 		}
 
 		public int getNumExposed() {
@@ -40,12 +38,7 @@ public class ConcaveHull implements GeometryToGeometry {
 
 		public DirectedEdge getStartEdge() {
 			return _startEdge;
-		}
-
-		public ArrayList<Double> getEdgeLengths() {
-			return _edgeLengths;
-		}
-		
+		}		
 		
 	}
 	
@@ -62,7 +55,7 @@ public class ConcaveHull implements GeometryToGeometry {
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
 
-		double RATIO = 0.80d;
+		double RATIO = 0.05d;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
@@ -73,14 +66,12 @@ public class ConcaveHull implements GeometryToGeometry {
 		Perimeter perimeter = findPerimeter(graph);
 		DirectedEdge successorEdge = perimeter.getStartEdge();
 		int numExposed = perimeter.getNumExposed();
-		ArrayList<Double> edgeLengths = perimeter.getEdgeLengths();
-		Collections.sort(edgeLengths);
 		// Note: threshold length for removing an edge... this is perhaps a bad heuristic for threshold. 
 		//       Have seen MST work well in other algorithm.
-		double threshold = edgeLengths.get((int)Math.floor(edgeLengths.size() * RATIO));
 		Node start = successorEdge.getFromNode();
 		Node from = start;
-		Node to;
+		Node to = successorEdge.getToNode() ;
+		double threshold = RATIO * from.getCoordinate().distance(to.getCoordinate());
 		
 		// do a number of laps 
 		while( true ) {
@@ -134,7 +125,6 @@ public class ConcaveHull implements GeometryToGeometry {
 	
 	private Perimeter findPerimeter(PlanarGraph graph) {
 		int numExposed = 0;
-		ArrayList<Double> edgeLengths = new ArrayList<Double>();
 		Node start, from, to;
 		DirectedEdge successorEdge, inversePredecessorEdge, longestEdge;		
 		// Initialize
@@ -161,7 +151,6 @@ public class ConcaveHull implements GeometryToGeometry {
 
 			// update stuff 
 			double len = from.getCoordinate().distance(to.getCoordinate());
-			edgeLengths.add(len);
 			if(len > longest) {
 				longest = len;
 				longestEdge = successorEdge;
@@ -177,7 +166,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		} 
 		while(from != start);
 		
-		return new Perimeter(numExposed, longestEdge, edgeLengths);
+		return new Perimeter(numExposed, longestEdge);
 	}
 
 	/**
