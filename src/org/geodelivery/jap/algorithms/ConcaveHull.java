@@ -1,5 +1,8 @@
 package org.geodelivery.jap.algorithms;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
 import org.geodelivery.jap.GeometryToGeometry;
 
 import com.vividsolutions.jts.geom.Coordinate;
@@ -19,6 +22,33 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
  */
 public class ConcaveHull implements GeometryToGeometry {
 	
+	class Perimeter {
+		int _numExposed;
+		DirectedEdge _startEdge;
+		ArrayList<Double> _edgeLengths;
+		
+		public Perimeter(int numExposed, DirectedEdge startEdge, ArrayList<Double> edgeLengths) {
+			super();
+			this._numExposed = numExposed;
+			this._startEdge = startEdge;
+			this._edgeLengths = edgeLengths;
+		}
+
+		public int getNumExposed() {
+			return _numExposed;
+		}
+
+		public DirectedEdge getStartEdge() {
+			return _startEdge;
+		}
+
+		public ArrayList<Double> getEdgeLengths() {
+			return _edgeLengths;
+		}
+		
+		
+	}
+	
 	// useful links:
 	// http://en.wikipedia.org/wiki/File:Degree-Radian_Conversion.svg	
 	public ConcaveHull() {
@@ -31,26 +61,87 @@ public class ConcaveHull implements GeometryToGeometry {
 	 */
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
-		
-		int compression = 42; // decide a good value for this one
-		int numExposed = 0;
+
+		double RATIO = 0.80d;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
 		DelaunayGraph delaunay = new DelaunayGraph();
 		PlanarGraph graph = delaunay.computeGraph(geom);
+		
+		// Establish perimeter
+		Perimeter perimeter = findPerimeter(graph);
+		DirectedEdge successorEdge = perimeter.getStartEdge();
+		int numExposed = perimeter.getNumExposed();
+		ArrayList<Double> edgeLengths = perimeter.getEdgeLengths();
+		Collections.sort(edgeLengths);
+		// Note: threshold length for removing an edge... this is perhaps a bad heuristic for threshold. 
+		//       Have seen MST work well in other algorithm.
+		double threshold = edgeLengths.get((int)Math.floor(edgeLengths.size() * RATIO));
+		Node start = successorEdge.getFromNode();
+		Node from = start;
+		Node to;
+		
+		// do a number of laps 
+		while( true ) {
 
-		// Variables
-		Node start, from, to;
-		DirectedEdge successorEdge, inversePredecessorEdge, longestEdge;
-		double longest;
+			boolean hasDeleted = false;
 
-		// Initialize
-		start = findStart(graph); // use "go west" algorithm
-		longestEdge = null; // will be updated in loop 4 sure!
-		longest = Double.MIN_VALUE;
-		from = start; // first node of perimeter
+			// do a lap around the perimeter
+			// delete edges that are already exposed, but not edges that become exposed
+			do {
+				from = successorEdge.getFromNode();
+				to = successorEdge.getToNode();
+				double length = from.getCoordinate().distance(to.getCoordinate());
+
+				// compute triangle edges
+				DirectedEdge triangleEdge1 = nextEdgeCW(successorEdge);
+				Node triangleNode = triangleEdge1.getToNode();
+				DirectedEdge inv = triangleEdge1.getEdge().getDirEdge(triangleNode);
+				DirectedEdge triangleEdge2 = nextEdgeCW(inv);
+
+				// can successor edge be deleted?
+				// rule 1: from and to have degree > 2
+				// rule 2: opposite node in CW triangle is not exposed
+				// rule 3: edge is longer than or equal to "threshold"
+				boolean rule1 = getDegree(successorEdge.getFromNode()) > 2 
+				&& getDegree(successorEdge.getToNode()) > 2;
+				boolean rule2 = !triangleNode.isMarked();
+				boolean rule3 = length >= threshold;
+				
+				if(rule1 && rule2 & rule3) {
+					// delete edge and replace with two triangle edges
+					from.setData(triangleEdge1);
+					triangleNode.setData(triangleEdge2);
+					markDeleted(successorEdge);
+					triangleNode.setMarked(true);
+					numExposed++;
+					hasDeleted = true;
+				}
+				successorEdge = (DirectedEdge) to.getData();
+				from = to;
+				
+			} while (from != start);
+			
+			if(!hasDeleted) {
+				break;
+			}
+		}
+		
+		Geometry result = toPolygon(start, numExposed);
+		return result;
+	}
 	
+	private Perimeter findPerimeter(PlanarGraph graph) {
+		int numExposed = 0;
+		ArrayList<Double> edgeLengths = new ArrayList<Double>();
+		Node start, from, to;
+		DirectedEdge successorEdge, inversePredecessorEdge, longestEdge;		
+		// Initialize
+		start = findStart(graph); // use a "go west" algorithm
+		longestEdge = null; // will be updated in loop 4 sure!
+		double longest = Double.MIN_VALUE;
+		from = start; // first node of perimeter
 		
 		// Special fake node/ege, to trick DirectedEdgeStar.getNextCWEdge
 		Node fakeNode = new Node(new Coordinate(start.getCoordinate().x - 10, start.getCoordinate().y));
@@ -70,6 +161,7 @@ public class ConcaveHull implements GeometryToGeometry {
 
 			// update stuff 
 			double len = from.getCoordinate().distance(to.getCoordinate());
+			edgeLengths.add(len);
 			if(len > longest) {
 				longest = len;
 				longestEdge = successorEdge;
@@ -85,61 +177,9 @@ public class ConcaveHull implements GeometryToGeometry {
 		} 
 		while(from != start);
 		
-		// now a full perimeter has been marked
-		// begin deletion
-		// jump to longest perimeter edge
-		successorEdge = longestEdge;
-		start = successorEdge.getFromNode();
-		from = start;
-
-		while(compression > 0) {
-
-			boolean hasDeleted = false;
-
-			// do a lap around the perimeter
-			// delete edges that are already exposed, but not edges that become exposed
-			do {
-				from = successorEdge.getFromNode();
-				to = successorEdge.getToNode();
-
-				// compute triangle edges
-				DirectedEdge triangleEdge1 = nextEdgeCW(successorEdge);
-				Node triangleNode = triangleEdge1.getToNode();
-				DirectedEdge inv = triangleEdge1.getEdge().getDirEdge(triangleNode);
-				DirectedEdge triangleEdge2 = nextEdgeCW(inv);
-
-				// can successor edge be deleted?
-				// rule 1: from and to have degree > 2
-				// rule 2: opposite node in CW triangle is not exposed
-				boolean rule1 = getDegree(successorEdge.getFromNode()) > 2 
-				&& getDegree(successorEdge.getToNode()) > 2;
-				boolean rule2 = !triangleNode.isMarked();
-				
-				if(rule1 && rule2) {
-					// delete edge and replace with two triangle edges
-					from.setData(triangleEdge1);
-					triangleNode.setData(triangleEdge2);
-					markDeleted(successorEdge);
-					triangleNode.setMarked(true);
-					numExposed++;
-					hasDeleted = true;
-				}
-				successorEdge = (DirectedEdge) to.getData();
-				from = to;
-				
-			} while (from != start);
-			
-			if(!hasDeleted) {
-				break;
-			}
-			
-			compression--;
-		}
-		
-		Geometry result = toPolygon(start, numExposed);
-		return result;
+		return new Perimeter(numExposed, longestEdge, edgeLengths);
 	}
-	
+
 	/**
 	 * Ignore edges marked as deleted when measuring degree of node
 	 * @param node
