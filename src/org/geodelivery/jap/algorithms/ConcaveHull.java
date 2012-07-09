@@ -1,8 +1,5 @@
 package org.geodelivery.jap.algorithms;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
 import org.geodelivery.jap.GeometryToGeometry;
 
 import com.vividsolutions.jts.geom.Coordinate;
