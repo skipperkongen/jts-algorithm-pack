@@ -1,5 +1,7 @@
 package org.geodelivery.jap.algorithms;
 
+import java.util.Set;
+
 import org.geodelivery.jap.GeometryToGraph;
 import org.geodelivery.jap.GraphToGraph;
 import org.jgrapht.alg.KruskalMinimumSpanningTree;
@@ -29,6 +31,7 @@ public class MinimumSpanningTree implements GeometryToGraph, GraphToGraph {
 		SimpleWeightedGraph<Coordinate, DefaultWeightedEdge> swg = 
 				new SimpleWeightedGraph<Coordinate, DefaultWeightedEdge>(DefaultWeightedEdge.class);
 		// Add edges from delaunay graph
+		System.out.println("- Copy from JTS graph");
 		for(Object obj : graph.getEdges()) {
 			Edge edge = (Edge) obj;
 			Coordinate c1 = edge.getDirEdge(0).getFromNode().getCoordinate();
@@ -39,14 +42,17 @@ public class MinimumSpanningTree implements GeometryToGraph, GraphToGraph {
 			DefaultWeightedEdge wedge = swg.addEdge(c1, c2);
 			swg.setEdgeWeight(wedge, weight);			
 		}
+		System.out.println("- Kruskal");
 		KruskalMinimumSpanningTree<Coordinate, DefaultWeightedEdge> kruskal = 
 				new KruskalMinimumSpanningTree<Coordinate, DefaultWeightedEdge>( swg );
-
+		Set<DefaultWeightedEdge> edges = kruskal.getEdgeSet();
+		
+		System.out.println("- Copy back to JTS graph");
 		// Copy to JTS graph (LineMergeGraph)
 		LineMergeGraph lmg = new LineMergeGraph();
 		GeometryFactory fact = new GeometryFactory();
 
-		for (DefaultWeightedEdge edge : kruskal.getEdgeSet()) {
+		for (DefaultWeightedEdge edge : edges) {
 			Coordinate c1 = swg.getEdgeSource(edge);
 			Coordinate c2 = swg.getEdgeTarget(edge);
 			Coordinate[] cs = new Coordinate[] {c1, c2};

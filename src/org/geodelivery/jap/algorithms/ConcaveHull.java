@@ -53,7 +53,7 @@ public class ConcaveHull implements GeometryToGeometry {
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
 
-		//double RATIO = 0.05d;
+		double RATIO = 0.5d;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
@@ -63,7 +63,7 @@ public class ConcaveHull implements GeometryToGeometry {
 
 		// Find threshold
 		System.out.println("MST");
-		double threshold = getThreshold(graph);
+		double threshold = getThreshold(graph) * RATIO;
 		
 		// Find perimeter
 		System.out.println("Perimeter");
