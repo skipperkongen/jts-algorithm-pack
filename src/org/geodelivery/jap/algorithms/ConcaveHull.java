@@ -5,7 +5,6 @@ import org.geodelivery.jap.GeometryToGeometry;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.operation.linemerge.LineMergeEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Edge;
@@ -40,10 +39,15 @@ public class ConcaveHull implements GeometryToGeometry {
 		
 	}
 	
-	// useful links:
-	// http://en.wikipedia.org/wiki/File:Degree-Radian_Conversion.svg	
-	public ConcaveHull() {
+	private double _ratio;
+	
+	public ConcaveHull(double ratio) {
 		super();
+		this._ratio = ratio;
+	}
+	
+	public ConcaveHull() {
+		this(0.1);
 	}
 	
 	/**
@@ -52,8 +56,6 @@ public class ConcaveHull implements GeometryToGeometry {
 	 */
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
-
-		double RATIO = 0.5d;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
@@ -62,14 +64,12 @@ public class ConcaveHull implements GeometryToGeometry {
 		PlanarGraph graph = delaunay.computeGraph(geom);
 
 		// Find threshold
-		System.out.println("MST");
-		double threshold = getThreshold(graph) * RATIO;
+		//System.out.println("MST");
+		//double threshold = getThreshold(graph);
 		
 		// Find perimeter
 		System.out.println("Perimeter");
 		Perimeter perimeter = findPerimeter(graph);
-
-		//double threshold = RATIO * from.getCoordinate().distance(to.getCoordinate());
 
 		// Find starting point
 		DirectedEdge successorEdge = perimeter.getStartEdge();
@@ -79,6 +79,9 @@ public class ConcaveHull implements GeometryToGeometry {
 		Node start = successorEdge.getFromNode();
 		Node from = start;
 		Node to = successorEdge.getToNode() ;
+		
+		System.out.println("Threshold fast");
+		double threshold = getThreshold2(successorEdge);
 		
 		// do a number of laps
 		System.out.println("ConcaveHull");
@@ -131,14 +134,33 @@ public class ConcaveHull implements GeometryToGeometry {
 		return result;
 	}
 	
-	private double getThreshold(PlanarGraph triangulationGraph) {
+/*	private double getThreshold(PlanarGraph triangulationGraph) {
+		// This method is slow, but pretty good. Uses MST
 		PlanarGraph mst = new MinimumSpanningTree().computeGraph(triangulationGraph);
 		double threshold = Double.MIN_VALUE;
 		for(Object obj : mst.getEdges()) {
 			LineMergeEdge edge = (LineMergeEdge) obj;
 			threshold = Math.max(threshold, edge.getLine().getLength());
 		}
-		return threshold;
+		double RATIO = 0.5d;
+		return threshold * RATIO;
+	}*/
+	
+	private double getThreshold2(DirectedEdge successorEdge) {
+		// Faster threshold, only considers edges on perimeter
+		// return quarter of average of perimeter edges
+		Node start = successorEdge.getFromNode();
+		DirectedEdge dirEdge = successorEdge;
+		double avg = 0;
+		double count = 0;
+		
+		do {
+			avg += dirEdge.getFromNode().getCoordinate().distance(dirEdge.getToNode().getCoordinate());
+			count++;
+			dirEdge = (DirectedEdge) dirEdge.getToNode().getData();
+		} while(dirEdge.getFromNode() != start);
+
+		return _ratio * avg/count;
 	}
 
 	private Perimeter findPerimeter(PlanarGraph graph) {
