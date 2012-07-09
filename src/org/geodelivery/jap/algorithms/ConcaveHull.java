@@ -1,5 +1,8 @@
 package org.geodelivery.jap.algorithms;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
 import org.geodelivery.jap.GeometryToGeometry;
 
 import com.vividsolutions.jts.geom.Coordinate;
@@ -14,31 +17,13 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
 /**
  * Concave hull algorithm by Pimin Konstantin Kefaloukos and 
  * Elias Lšfgren.
- * Future optimizations: store successor edge instead of successor node in exposed nodes setData()
+ * Tunable parameter: List of perimeter edge lengths are sorted, and parameter [0,1] used as index into list
+ * E.g. ratio of 0.5 median of perimeter edge lengths used as threshold.
  * @author Pimin Konstantin Kefaloukos
  */
 public class ConcaveHull implements GeometryToGeometry {
 	
-	class Perimeter {
-		int _numExposed;
-		DirectedEdge _startEdge;
-		
-		public Perimeter(int numExposed, DirectedEdge startEdge) {
-			super();
-			this._numExposed = numExposed;
-			this._startEdge = startEdge;
-		}
-
-		public int getNumExposed() {
-			return _numExposed;
-		}
-
-		public DirectedEdge getStartEdge() {
-			return _startEdge;
-		}		
-		
-	}
-	
+	private final static double RATIO = 0.5;
 	private double _ratio;
 	
 	public ConcaveHull(double ratio) {
@@ -47,7 +32,7 @@ public class ConcaveHull implements GeometryToGeometry {
 	}
 	
 	public ConcaveHull() {
-		this(0.1);
+		this(RATIO);
 	}
 	
 	/**
@@ -81,7 +66,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		Node to = successorEdge.getToNode() ;
 		
 		System.out.println("Threshold fast");
-		double threshold = getThreshold2(successorEdge);
+		double threshold = getThreshold3(successorEdge);
 		
 		// do a number of laps
 		System.out.println("ConcaveHull");
@@ -146,9 +131,10 @@ public class ConcaveHull implements GeometryToGeometry {
 		return threshold * RATIO;
 	}*/
 	
-	private double getThreshold2(DirectedEdge successorEdge) {
-		// Faster threshold, only considers edges on perimeter
-		// return quarter of average of perimeter edges
+	/*private double getThreshold2(DirectedEdge successorEdge) {
+		// Faster threshold. 
+		// - Only considers edges on perimeter
+		// - Uses average length of perimeter edges
 		Node start = successorEdge.getFromNode();
 		DirectedEdge dirEdge = successorEdge;
 		double avg = 0;
@@ -161,6 +147,24 @@ public class ConcaveHull implements GeometryToGeometry {
 		} while(dirEdge.getFromNode() != start);
 
 		return _ratio * avg/count;
+	}*/
+
+	private double getThreshold3(DirectedEdge successorEdge) {
+		// Faster threshold. 
+		// - Only considers edges on perimeter
+		// - Uses norm value of perimeter edges
+		Node start = successorEdge.getFromNode();
+		DirectedEdge dirEdge = successorEdge;
+		ArrayList<Double> edgeLengths = new ArrayList<Double>();
+		
+		do {
+			double dist = dirEdge.getFromNode().getCoordinate().distance(dirEdge.getToNode().getCoordinate());
+			edgeLengths.add(dist);
+			dirEdge = (DirectedEdge) dirEdge.getToNode().getData();
+		} while(dirEdge.getFromNode() != start);
+		Collections.sort(edgeLengths);
+		int index = (int) Math.floor( (edgeLengths.size()-1) * _ratio );
+		return edgeLengths.get( index );
 	}
 
 	private Perimeter findPerimeter(PlanarGraph graph) {
@@ -299,5 +303,25 @@ public class ConcaveHull implements GeometryToGeometry {
 		GeometryFactory fact = new GeometryFactory();
 		// return just the concave hull
 		return fact.createPolygon(fact.createLinearRing(shell), null);
+	}
+	
+	class Perimeter {
+		int _numExposed;
+		DirectedEdge _startEdge;
+		
+		public Perimeter(int numExposed, DirectedEdge startEdge) {
+			super();
+			this._numExposed = numExposed;
+			this._startEdge = startEdge;
+		}
+
+		public int getNumExposed() {
+			return _numExposed;
+		}
+
+		public DirectedEdge getStartEdge() {
+			return _startEdge;
+		}		
+		
 	}
 }
