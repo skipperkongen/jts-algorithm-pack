@@ -5,6 +5,7 @@ import org.geodelivery.jap.GeometryToGeometry;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.operation.linemerge.LineMergeEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Edge;
@@ -52,15 +53,25 @@ public class ConcaveHull implements GeometryToGeometry {
 	@Override
 	public Geometry computeGeometry(Geometry geom) {
 
-		double RATIO = 0.05d;
+		//double RATIO = 0.05d;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
+		System.out.println("Delaunay");
 		DelaunayGraph delaunay = new DelaunayGraph();
 		PlanarGraph graph = delaunay.computeGraph(geom);
+
+		// Find threshold
+		System.out.println("MST");
+		double threshold = getThreshold(graph);
 		
-		// Establish perimeter
+		// Find perimeter
+		System.out.println("Perimeter");
 		Perimeter perimeter = findPerimeter(graph);
+
+		//double threshold = RATIO * from.getCoordinate().distance(to.getCoordinate());
+
+		// Find starting point
 		DirectedEdge successorEdge = perimeter.getStartEdge();
 		int numExposed = perimeter.getNumExposed();
 		// Note: threshold length for removing an edge... this is perhaps a bad heuristic for threshold. 
@@ -68,9 +79,9 @@ public class ConcaveHull implements GeometryToGeometry {
 		Node start = successorEdge.getFromNode();
 		Node from = start;
 		Node to = successorEdge.getToNode() ;
-		double threshold = RATIO * from.getCoordinate().distance(to.getCoordinate());
 		
-		// do a number of laps 
+		// do a number of laps
+		System.out.println("ConcaveHull");
 		while( true ) {
 
 			boolean hasDeleted = false;
@@ -120,6 +131,16 @@ public class ConcaveHull implements GeometryToGeometry {
 		return result;
 	}
 	
+	private double getThreshold(PlanarGraph triangulationGraph) {
+		PlanarGraph mst = new MinimumSpanningTree().computeGraph(triangulationGraph);
+		double threshold = Double.MIN_VALUE;
+		for(Object obj : mst.getEdges()) {
+			LineMergeEdge edge = (LineMergeEdge) obj;
+			threshold = Math.max(threshold, edge.getLine().getLength());
+		}
+		return threshold;
+	}
+
 	private Perimeter findPerimeter(PlanarGraph graph) {
 		int numExposed = 0;
 		Node start, from, to;
