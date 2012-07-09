@@ -1,4 +1,6 @@
-package org.geodelivery.jap.charact;
+package org.geodelivery.jap.algorithms;
+
+import org.geodelivery.jap.GeometryToGeometry;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
@@ -15,30 +17,34 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
  * Future optimizations: store successor edge instead of successor node in exposed nodes setData()
  * @author Pimin Konstantin Kefaloukos
  */
-public class ConcaveHull extends Characterizer {
+public class ConcaveHull implements GeometryToGeometry {
 	
 	// useful links:
 	// http://en.wikipedia.org/wiki/File:Degree-Radian_Conversion.svg
 	
+	private int _compression;	
 	private int _numExposed;
 	
-	public ConcaveHull(Geometry geom) {
-		super(geom);
+	public ConcaveHull(int compression) {
+		super();
+		this._compression = compression;
 	}
+	
 	
 	/**
 	 * @param compression
 	 * @return
 	 */
-	public Geometry getConcaveHull(int compression) {
-
+	@Override
+	public Geometry computeGeometry(Geometry geom) {
+		
+		int compression = this._compression;
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
+		DelaunayGraph delaunay = new DelaunayGraph();
+		PlanarGraph graph = delaunay.computeGraph(geom);
 
-		PlanarGraph graph = getGraph();
-
-		long t0 = System.currentTimeMillis();
 		// Variables
 		Node start, from, to;
 		DirectedEdge successorEdge, inversePredecessorEdge, longestEdge;
@@ -136,7 +142,6 @@ public class ConcaveHull extends Characterizer {
 		}
 		
 		Geometry result = toPolygon(start);
-		System.out.println("getConcaveHull():" + (System.currentTimeMillis() - t0));
 		return result;
 	}
 	
@@ -231,5 +236,4 @@ public class ConcaveHull extends Characterizer {
 		// return just the concave hull
 		return fact.createPolygon(fact.createLinearRing(shell), null);
 	}
-
 }
