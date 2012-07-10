@@ -8,6 +8,7 @@ import org.geodelivery.jap.GeometryToGeometry;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.operation.linemerge.LineMergeEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Edge;
@@ -17,22 +18,42 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
 /**
  * Concave hull algorithm by Pimin Konstantin Kefaloukos and 
  * Elias Lšfgren.
- * Tunable parameter: List of perimeter edge lengths are sorted, and parameter [0,1] used as index into list
- * E.g. ratio of 0.5 median of perimeter edge lengths used as threshold.
+ * <p>The algorithm works by extracting a point cloud from the input geometry, and computing the Delaunay Triangulation of this
+ * point cloud. The triangulation forms the basis of the output polygon, and the algorithm iteratively removes triangles at the perimeter
+ * of the triangulation until a stop criterium is met.</p>
+ * 
+ * <p>The algorithm takes a geometry and a tunable parameter &Alpha; &isin; {0,1}. The parameter is used together with one of the three heuristics
+ * described below.</p> 
+ * 
+ * <p>The perimeter of the triangulation initially corresponds to the Convex Hull. The algorithm
+ * circles the perimeter and targets edges that can be deleted, and replaced by the two inner triangle edges.
+ * The algorithm applies three rules to determine whether a perimeter edge should be deleted. The first two rules ensure that the resulting polygon is valid.
+ * The third rule is a threshold for the minimum length of edges that are deleted.</p>
+ * 
+ * <p>When computing the minimum edge length threshold, the algorithm uses one of three heuristics:
+ * <ul>
+ * <li>Average of edge lengths on initial perimeter, times alpha</li>
+ * <li>Edge lengths of initial perimeter, sorted. Alpha used as index into sorted array. Alpha=0.5 corresponds to median value.</li>
+ * <li>Compute the minimum spanning tree, and use longest MST edge time alpha</li>
+ * </ul>
+ * </p>
+ * 
  * @author Pimin Konstantin Kefaloukos
  */
 public class ConcaveHull implements GeometryToGeometry {
 	
-	private final static double RATIO = 0.5;
-	private double _ratio;
+	private final static double DEFAULT_ALPHA = 0.5;
+	private double _alpha;
+	private ThresholdHeuristic _thresholdHeuristic;
 	
-	public ConcaveHull(double ratio) {
+	public ConcaveHull(ThresholdHeuristic thresholdHeuristic, double alpha) {
 		super();
-		this._ratio = ratio;
+		this._thresholdHeuristic = thresholdHeuristic;
+		this._alpha = alpha;
 	}
 	
 	public ConcaveHull() {
-		this(RATIO);
+		this(ThresholdHeuristic.MED, DEFAULT_ALPHA);
 	}
 	
 	/**
@@ -54,7 +75,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		
 		// Find perimeter
 		System.out.println("Perimeter");
-		Perimeter perimeter = findPerimeter(graph);
+		Perimeter perimeter = findPerimeter( graph );
 
 		// Find starting point
 		DirectedEdge successorEdge = perimeter.getStartEdge();
@@ -66,7 +87,22 @@ public class ConcaveHull implements GeometryToGeometry {
 		Node to = successorEdge.getToNode() ;
 		
 		System.out.println("Threshold fast");
-		double threshold = getThreshold3(successorEdge);
+		double threshold;
+		switch(this._thresholdHeuristic) {
+		case AVG:
+			threshold = getThresholdAvg( successorEdge );
+			break;
+		case MED:
+			threshold = getThresholdMed( successorEdge );
+			break;
+		case MST:
+			threshold = getThresholdMst( graph );
+			break;
+		default:
+			threshold = getThresholdMed( successorEdge );
+			break;
+		}
+		
 		
 		// do a number of laps
 		System.out.println("ConcaveHull");
@@ -119,7 +155,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		return result;
 	}
 	
-/*	private double getThreshold(PlanarGraph triangulationGraph) {
+	private double getThresholdMst(PlanarGraph triangulationGraph) {
 		// This method is slow, but pretty good. Uses MST
 		PlanarGraph mst = new MinimumSpanningTree().computeGraph(triangulationGraph);
 		double threshold = Double.MIN_VALUE;
@@ -127,11 +163,10 @@ public class ConcaveHull implements GeometryToGeometry {
 			LineMergeEdge edge = (LineMergeEdge) obj;
 			threshold = Math.max(threshold, edge.getLine().getLength());
 		}
-		double RATIO = 0.5d;
-		return threshold * RATIO;
-	}*/
+		return _alpha * threshold;
+	}
 	
-	/*private double getThreshold2(DirectedEdge successorEdge) {
+	private double getThresholdAvg(DirectedEdge successorEdge) {
 		// Faster threshold. 
 		// - Only considers edges on perimeter
 		// - Uses average length of perimeter edges
@@ -146,10 +181,10 @@ public class ConcaveHull implements GeometryToGeometry {
 			dirEdge = (DirectedEdge) dirEdge.getToNode().getData();
 		} while(dirEdge.getFromNode() != start);
 
-		return _ratio * avg/count;
-	}*/
+		return _alpha * avg/count;
+	}
 
-	private double getThreshold3(DirectedEdge successorEdge) {
+	private double getThresholdMed(DirectedEdge successorEdge) {
 		// Faster threshold. 
 		// - Only considers edges on perimeter
 		// - Uses norm value of perimeter edges
@@ -163,7 +198,7 @@ public class ConcaveHull implements GeometryToGeometry {
 			dirEdge = (DirectedEdge) dirEdge.getToNode().getData();
 		} while(dirEdge.getFromNode() != start);
 		Collections.sort(edgeLengths);
-		int index = (int) Math.floor( (edgeLengths.size()-1) * _ratio );
+		int index = (int) Math.floor( (edgeLengths.size()-1) * _alpha );
 		return edgeLengths.get( index );
 	}
 
@@ -303,6 +338,12 @@ public class ConcaveHull implements GeometryToGeometry {
 		GeometryFactory fact = new GeometryFactory();
 		// return just the concave hull
 		return fact.createPolygon(fact.createLinearRing(shell), null);
+	}
+	
+	public enum ThresholdHeuristic {
+		MST,
+		AVG,
+		MED
 	}
 	
 	class Perimeter {
