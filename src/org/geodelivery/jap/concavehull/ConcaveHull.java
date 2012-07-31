@@ -47,6 +47,11 @@ public class ConcaveHull implements Transform<Geometry, Geometry> {
 	private double _alpha;
 	private ThresholdHeuristic _thresholdHeuristic;
 	
+	public ConcaveHull(double alpha) {
+		this(ThresholdHeuristic.MED, alpha);
+	}
+
+	
 	public ConcaveHull(ThresholdHeuristic thresholdHeuristic, double alpha) {
 		super();
 		this._thresholdHeuristic = thresholdHeuristic;

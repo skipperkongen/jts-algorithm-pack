@@ -13,6 +13,7 @@ import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;
 import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.index.strtree.STRtree;
+import com.vividsolutions.jts.simplify.DouglasPeuckerSimplifier;
 
 /**
  * @author Pimin Konstantin Kefaloukos
@@ -53,6 +54,7 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 			index.build();
 			Coordinate previous = null;
 			for (Coordinate c : vexring.getCoordinates()) {
+				// This proceduce creates invalid polygons. Find better solution.
 				Coordinate nearest = findNearest(c, startRange, srcDim, index);
 				if(nearest != previous) {
 					result[bindex++] = nearest;
@@ -61,9 +63,14 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 			}
 			Coordinate[] shell = new Coordinate[bindex];
 			System.arraycopy(result, 0, shell, 0, bindex);
-			Polygon p = gf.createPolygon(gf.createLinearRing(shell), null);
+			Geometry p = gf.createPolygon(gf.createLinearRing(shell), null);
 			//p.buffer(srcDim*BUFFER_PCT);
 			//p.buffer(-10);
+			if(!p.isValid()) {
+				DouglasPeuckerSimplifier simp = new DouglasPeuckerSimplifier(p);
+				p = simp.getResultGeometry();
+			}
+			System.out.println("Valid: " + p.isValid());
 			return p;
 		}
 		else {
@@ -72,7 +79,6 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 	}
 
 	private Coordinate findNearest(Coordinate qc, double range, double maxRange, STRtree index) {
-		// TODO Auto-generated method stub
 		while(range < maxRange) {
 			Envelope searchEnv = new Envelope(qc.x - range, qc.x + range, qc.y - range, qc.y + range);
 			@SuppressWarnings("rawtypes")

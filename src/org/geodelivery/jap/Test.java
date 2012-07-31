@@ -19,7 +19,7 @@ public class Test {
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
+	public static void main2(String[] args) {
 		try {
 			// Open the file that is the first
 			// command line parameter
@@ -52,7 +52,7 @@ public class Test {
 	/**
 	 * @param args
 	 */
-	public static void main2(String[] args) {
+	public static void main(String[] args) {
 		try {
 			// Open the file that is the first
 			// command line parameter
@@ -63,7 +63,7 @@ public class Test {
 
 			WKTReader wktReader = new WKTReader();
 			Geometry g = wktReader.read(br);
-			ConcaveHull ch = new ConcaveHull();
+			ConcaveHull ch = new ConcaveHull(0.7);
 			Geometry result = ch.transform(g);
 			//result = DouglasPeuckerSimplifier.simplify(result, 500);
 			//result = result.buffer(250);
