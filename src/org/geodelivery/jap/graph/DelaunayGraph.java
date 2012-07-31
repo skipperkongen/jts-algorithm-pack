@@ -1,6 +1,6 @@
-package org.geodelivery.jap.algorithms;
+package org.geodelivery.jap.graph;
 
-import org.geodelivery.jap.GeometryToGraph;
+import org.geodelivery.jap.core.GeometryToGraph;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;

@@ -7,7 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 
-import org.geodelivery.jap.algorithms.ConcaveHull;
+import org.geodelivery.jap.concavehull.ConcaveHull;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;

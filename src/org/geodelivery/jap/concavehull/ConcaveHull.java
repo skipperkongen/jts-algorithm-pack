@@ -1,14 +1,15 @@
-package org.geodelivery.jap.algorithms;
+package org.geodelivery.jap.concavehull;
 
 import java.util.ArrayList;
 import java.util.Collections;
 
-import org.geodelivery.jap.GeometryToGeometry;
+import org.geodelivery.jap.core.GeometryToGeometry;
+import org.geodelivery.jap.graph.DelaunayGraph;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.operation.linemerge.LineMergeEdge;
+//import com.vividsolutions.jts.operation.linemerge.LineMergeEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdge;
 import com.vividsolutions.jts.planargraph.DirectedEdgeStar;
 import com.vividsolutions.jts.planargraph.Edge;
@@ -65,7 +66,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
-		System.out.println("Delaunay");
+		//System.out.println("Delaunay");
 		DelaunayGraph delaunay = new DelaunayGraph();
 		PlanarGraph graph = delaunay.computeGraph(geom);
 
@@ -74,7 +75,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		//double threshold = getThreshold(graph);
 		
 		// Find perimeter
-		System.out.println("Perimeter");
+		//System.out.println("Perimeter");
 		Perimeter perimeter = findPerimeter( graph );
 
 		// Find starting point
@@ -86,7 +87,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		Node from = start;
 		Node to = successorEdge.getToNode() ;
 		
-		System.out.println("Threshold fast");
+		//System.out.println("Threshold fast");
 		double threshold;
 		switch(this._thresholdHeuristic) {
 		case AVG:
@@ -95,9 +96,9 @@ public class ConcaveHull implements GeometryToGeometry {
 		case MED:
 			threshold = getThresholdMed( successorEdge );
 			break;
-		case MST:
-			threshold = getThresholdMst( graph );
-			break;
+		//case MST:
+			//threshold = getThresholdMst( graph );
+			//break;
 		default:
 			threshold = getThresholdMed( successorEdge );
 			break;
@@ -105,7 +106,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		
 		
 		// do a number of laps
-		System.out.println("ConcaveHull");
+		//System.out.println("ConcaveHull");
 		while( true ) {
 
 			boolean hasDeleted = false;
@@ -155,7 +156,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		return result;
 	}
 	
-	private double getThresholdMst(PlanarGraph triangulationGraph) {
+/*	private double getThresholdMst(PlanarGraph triangulationGraph) {
 		// This method is slow, but pretty good. Uses MST
 		PlanarGraph mst = new MinimumSpanningTree().computeGraph(triangulationGraph);
 		double threshold = Double.MIN_VALUE;
@@ -165,7 +166,7 @@ public class ConcaveHull implements GeometryToGeometry {
 		}
 		return _alpha * threshold;
 	}
-	
+*/	
 	private double getThresholdAvg(DirectedEdge successorEdge) {
 		// Faster threshold. 
 		// - Only considers edges on perimeter
@@ -341,7 +342,7 @@ public class ConcaveHull implements GeometryToGeometry {
 	}
 	
 	public enum ThresholdHeuristic {
-		MST,
+		//MST,
 		AVG,
 		MED
 	}

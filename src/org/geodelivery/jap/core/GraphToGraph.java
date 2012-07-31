@@ -1,4 +1,4 @@
-package org.geodelivery.jap;
+package org.geodelivery.jap.core;
 
 import com.vividsolutions.jts.planargraph.PlanarGraph;
 
