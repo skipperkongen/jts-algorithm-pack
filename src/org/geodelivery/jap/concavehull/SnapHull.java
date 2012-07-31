@@ -1,5 +1,7 @@
 package org.geodelivery.jap.concavehull;
 
+import java.util.ArrayList;
+
 import org.geodelivery.jap.core.Transform;
 
 import com.vividsolutions.jts.algorithm.ConvexHull;
@@ -13,7 +15,7 @@ import com.vividsolutions.jts.index.strtree.GeometryItemDistance;
 import com.vividsolutions.jts.index.strtree.STRtree;
 
 /**
- * @author kostas
+ * @author Pimin Konstantin Kefaloukos
  * Java implementation of ST_ConcaveHull in PostGis 2.0
  */
 public class SnapHull implements Transform<Geometry, Geometry> {
@@ -30,7 +32,7 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 			// get the exterior ring
 			LineString vexring = ((Polygon)geometry).getExteriorRing();
 			int numVertices = (int) Math.min(vexring.getNumPoints()*2, 1000);
-			Coordinate[] result = new Coordinate[numVertices+1]; // upperbound on verts on boundary
+			Coordinate[] result = new Coordinate[numVertices]; // upperbound on verts on boundary
 			int bindex = 0;
 			double seglength = vexring.getLength()/numVertices;
 			vexring = segmentize(vexring, seglength);
@@ -54,7 +56,6 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 				// remove from index
 				index.remove(env, c);
 			}
-			result[bindex++] = result[0]; // make linear ring
 			Coordinate[] shell = new Coordinate[bindex];
 			System.arraycopy(result, 0, shell, 0, bindex);
 			return gf.createPolygon(gf.createLinearRing(shell), null);
@@ -66,7 +67,27 @@ public class SnapHull implements Transform<Geometry, Geometry> {
 
 	private LineString segmentize(LineString vexring, double seglength) {
 		// TODO Auto-generated method stub
-		return null;
+		Coordinate[] vcoords = vexring.getCoordinates();
+		GeometryFactory gf = new GeometryFactory();
+		ArrayList<Coordinate> ext = new ArrayList<Coordinate>();
+		for(int i=0; i<vcoords.length-1; i++) {
+			ext.add(vcoords[i]);
+			double dist = vcoords[i].distance(vcoords[i+1]);
+			double numSegments = Math.ceil(dist / seglength);
+			double actLength = dist / numSegments;
+			double factor = actLength / dist;
+			double vectorX = factor * (vcoords[i+1].x - vcoords[i].x);
+			double vectorY = factor * (vcoords[i+1].y - vcoords[i].y);
+			Coordinate ins = vcoords[0];
+			while(numSegments > 1) {
+				ins.x = ins.x + vectorX;
+				ins.y = ins.y + vectorY;
+				ext.add(ins);
+				numSegments--;
+			}
+			ext.add(vcoords[i+1]);
+		}
+		return gf.createLinearRing( ext.toArray(new Coordinate[ext.size()]) );
 	}
 
 }
