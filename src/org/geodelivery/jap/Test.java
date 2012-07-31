@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.InputStreamReader;
 
 import org.geodelivery.jap.concavehull.ConcaveHull;
+import org.geodelivery.jap.concavehull.SnapHull;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;
@@ -19,6 +20,39 @@ public class Test {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		try {
+			// Open the file that is the first
+			// command line parameter
+			FileInputStream fstream = new FileInputStream("data/punkter.wkt");
+			// Get the object of DataInputStream
+			DataInputStream in = new DataInputStream(fstream);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+
+			WKTReader wktReader = new WKTReader();
+			Geometry g = wktReader.read(br);
+			SnapHull ch = new SnapHull();
+			Geometry result = ch.transform(g);
+			//result = DouglasPeuckerSimplifier.simplify(result, 500);
+			//result = result.buffer(250);
+			//result = result.buffer(-250);
+
+			System.out.println(result.toText());
+			WKTWriter writer = new WKTWriter();
+			FileWriter outstream = new FileWriter("data/result.wkt");
+			BufferedWriter out = new BufferedWriter(outstream);
+			writer.write(result, out);
+
+		} catch (Exception e) {// Catch exception if any
+			e.printStackTrace();
+			//System.err.println("Error: " + e.getMessage());
+		}
+
+	}	
+	
+	/**
+	 * @param args
+	 */
+	public static void main2(String[] args) {
 		try {
 			// Open the file that is the first
 			// command line parameter
