@@ -1,6 +1,7 @@
-package org.geodelivery.jap.graph;
+package org.geodelivery.jap.util;
 
-import org.geodelivery.jap.core.GeometryToGraph;
+
+import org.geodelivery.jap.core.Transform;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
@@ -9,13 +10,13 @@ import com.vividsolutions.jts.operation.linemerge.LineMergeGraph;
 import com.vividsolutions.jts.planargraph.PlanarGraph;
 import com.vividsolutions.jts.triangulate.DelaunayTriangulationBuilder;
 
-public class DelaunayGraph implements GeometryToGraph {
+public class DelaunayGraph implements Transform<Geometry, PlanarGraph> {
 	
 	public DelaunayGraph() {
 		super();
 	}
 
-	public PlanarGraph computeGraph(Geometry geom) {
+	public PlanarGraph transform(Geometry geom) {
 
 		DelaunayTriangulationBuilder triangulator = new DelaunayTriangulationBuilder();
 		triangulator.setSites(geom);

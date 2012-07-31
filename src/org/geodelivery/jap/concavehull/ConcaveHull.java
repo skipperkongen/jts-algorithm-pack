@@ -3,8 +3,8 @@ package org.geodelivery.jap.concavehull;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import org.geodelivery.jap.core.GeometryToGeometry;
-import org.geodelivery.jap.graph.DelaunayGraph;
+import org.geodelivery.jap.core.Transform;
+import org.geodelivery.jap.util.DelaunayGraph;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
@@ -41,7 +41,7 @@ import com.vividsolutions.jts.planargraph.PlanarGraph;
  * 
  * @author Pimin Konstantin Kefaloukos
  */
-public class ConcaveHull implements GeometryToGeometry {
+public class ConcaveHull implements Transform<Geometry, Geometry> {
 	
 	private final static double DEFAULT_ALPHA = 0.5;
 	private double _alpha;
@@ -62,13 +62,13 @@ public class ConcaveHull implements GeometryToGeometry {
 	 * @return
 	 */
 	@Override
-	public Geometry computeGeometry(Geometry geom) {
+	public Geometry transform(Geometry geom) {
 		
 		// marked node means "exposed"
 		// marked edge means "deleted"
 		//System.out.println("Delaunay");
 		DelaunayGraph delaunay = new DelaunayGraph();
-		PlanarGraph graph = delaunay.computeGraph(geom);
+		PlanarGraph graph = delaunay.transform(geom);
 
 		// Find threshold
 		//System.out.println("MST");

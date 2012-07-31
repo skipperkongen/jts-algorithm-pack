@@ -30,7 +30,7 @@ public class Test {
 			WKTReader wktReader = new WKTReader();
 			Geometry g = wktReader.read(br);
 			ConcaveHull ch = new ConcaveHull();
-			Geometry result = ch.computeGeometry(g);
+			Geometry result = ch.transform(g);
 			//result = DouglasPeuckerSimplifier.simplify(result, 500);
 			//result = result.buffer(250);
 			//result = result.buffer(-250);
