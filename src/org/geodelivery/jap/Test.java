@@ -1,84 +1,46 @@
 package org.geodelivery.jap;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 
 import org.geodelivery.jap.concavehull.ConcaveHull;
 import org.geodelivery.jap.concavehull.SnapHull;
+import org.geodelivery.jap.core.Transform;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.WKTReader;
-import com.vividsolutions.jts.io.WKTWriter;
 
 public class Test {
-
-	/**
-	 * @param args
-	 */
-	public static void main2(String[] args) {
-		try {
-			// Open the file that is the first
-			// command line parameter
-			FileInputStream fstream = new FileInputStream("data/punkter.wkt");
-			// Get the object of DataInputStream
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
-
-			WKTReader wktReader = new WKTReader();
-			Geometry g = wktReader.read(br);
-			SnapHull ch = new SnapHull();
-			Geometry result = ch.transform(g);
-			//result = DouglasPeuckerSimplifier.simplify(result, 500);
-			//result = result.buffer(250);
-			//result = result.buffer(-250);
-
-			System.out.println(result.toText());
-			WKTWriter writer = new WKTWriter();
-			FileWriter outstream = new FileWriter("data/result.wkt");
-			BufferedWriter out = new BufferedWriter(outstream);
-			writer.write(result, out);
-
-		} catch (Exception e) {// Catch exception if any
-			e.printStackTrace();
-			//System.err.println("Error: " + e.getMessage());
-		}
-
-	}	
 	
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		try {
-			// Open the file that is the first
-			// command line parameter
-			FileInputStream fstream = new FileInputStream("data/punkter.wkt");
-			// Get the object of DataInputStream
-			DataInputStream in = new DataInputStream(fstream);
-			BufferedReader br = new BufferedReader(new InputStreamReader(in));
+	public static void main(String[] args) throws Exception {
+		// Open the file that is the first
+		// command line parameter
+		FileInputStream fstream = new FileInputStream("data/punkter.wkt");
+		// Get the object of DataInputStream
+		DataInputStream in = new DataInputStream(fstream);
+		BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
-			WKTReader wktReader = new WKTReader();
-			Geometry g = wktReader.read(br);
-			ConcaveHull ch = new ConcaveHull(0.7);
-			Geometry result = ch.transform(g);
-			//result = DouglasPeuckerSimplifier.simplify(result, 500);
-			//result = result.buffer(250);
-			//result = result.buffer(-250);
+		WKTReader wktReader = new WKTReader();
+		Geometry g = wktReader.read(br);
 
-			System.out.println(result.toText());
-			WKTWriter writer = new WKTWriter();
-			FileWriter outstream = new FileWriter("data/result.wkt");
-			BufferedWriter out = new BufferedWriter(outstream);
-			writer.write(result, out);
+		HashMap<String, Geometry> results = new HashMap<String, Geometry>();
+		results.put("snaphull", runAlgorithm(new SnapHull(), g));
+		results.put("concavehull", runAlgorithm(new ConcaveHull(0.7),g));
 
-		} catch (Exception e) {// Catch exception if any
-			System.err.println("Error: " + e.getMessage());
-		}
-
+		for(String key : results.keySet()) {
+			System.out.println(key + ": \n" + results.get(key).toText());
+		}		
 	}
 
+	private static Geometry runAlgorithm(Transform<Geometry, Geometry> algorithm, Geometry g) {
+		// TODO Auto-generated method stub
+		long t0 = System.currentTimeMillis();
+		Geometry result = algorithm.transform(g);
+		long t1 = System.currentTimeMillis();
+		System.out.println("Processing time: " + (t1-t0) + " ms");
+		return result;
+	}
 }
