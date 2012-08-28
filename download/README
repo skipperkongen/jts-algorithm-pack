@@ -1,0 +1,4 @@
+To use jar files, simply remove the ".dist" postfix. 
+
+The postfix was added because I was too lazy to figure out how to make GIT add the file,
+given that I have ignored compiled files (e.g. jar files) in my GIT ignore settings.
